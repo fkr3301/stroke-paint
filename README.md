@@ -111,4 +111,6 @@ docs/                    ← README 用截图
 
 ## 许可
 
-MIT（见 [LICENSE](LICENSE)）。内置的 `vendor/jpeg-js` 亦为 MIT，版权归其作者。
+MIT（见 [LICENSE](LICENSE)）。项目内置了 `vendor/jpeg-js`（同为 MIT，版权归其作者），
+其声明与免责说明见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。仓库内的示例图由
+`examples/make-sample.py` 程序生成，不含任何第三方素材。

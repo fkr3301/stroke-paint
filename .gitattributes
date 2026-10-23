@@ -1,0 +1,4 @@
+# keep the repo LF so Windows checkouts don't churn every line
+* text=auto eol=lf
+*.png binary
+*.jpg binary

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>layer preview · stroke-paint</title>
+<style>
+  body{margin:0;background:#111;color:#eee;font:13px system-ui,-apple-system,'Segoe UI',sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  header{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #2a2d33;flex-wrap:wrap}
+  header b{font-weight:600;color:#ffd;white-space:nowrap;flex:none}
+  .btns{display:flex;gap:4px;flex-wrap:wrap}
+  .btns button{background:#1b1e23;color:#9aa0ab;border:1px solid #2f343c;font:11px ui-monospace,Consolas,monospace;padding:4px 9px;cursor:pointer}
+  .btns button.on{background:#ffd;border-color:#ffd;color:#141414;font-weight:600}
+  #cap{font:11px ui-monospace,Consolas,monospace;color:#9aa0ab;margin-left:auto;white-space:nowrap}
+  #row{flex:1;min-height:0;display:flex;gap:8px;padding:8px;overflow:hidden}
+  .col{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:5px}
+  .lb{font:10px ui-monospace,Consolas,monospace;letter-spacing:2px;color:#7f8590;text-align:center}
+  .cell{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  .cell img,.cell svg{display:block;background:#fff;max-width:100%;max-height:100%}
+</style></head><body>
+<header>
+  <span class="btns" id="btns"></span>
+  <span id="cap"></span>
+</header>
+<div id="row">
+  <div class="col">
+    <span class="lb">ORIGINAL</span>
+    <div class="cell" id="cellA"><img id="orig" src="__ORIGINAL__"></div>
+  </div>
+  <div class="col">
+    <span class="lb" id="plb">PAINTED</span>
+    <div class="cell" id="cellB"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  </div>
+</div>
+<script>
+const PK = __PACKET__;
+const MAXL = __MAXLAYER__;
+const svg = document.getElementById('svg');
+svg.setAttribute('viewBox', '0 0 ' + PK.w + ' ' + PK.h);
+const r = document.createElementNS(svg.namespaceURI, 'rect');
+r.setAttribute('width', PK.w); r.setAttribute('height', PK.h); r.setAttribute('fill', '#fff');
+svg.appendChild(r);
+const paths = [];
+const frag = document.createDocumentFragment();
+for (const s of PK.strokes) {
+  const p = document.createElementNS(svg.namespaceURI, 'path');
+  p.setAttribute('d', s[0]); p.setAttribute('stroke', s[1]); p.setAttribute('stroke-width', s[2]);
+  p.setAttribute('fill', 'none'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+  p.setAttribute('stroke-opacity', s[3]);
+  p.dataset.l = s[6];
+  paths.push(p); frag.appendChild(p);
+}
+svg.appendChild(frag);
+const counts = (() => { const c = {}; for (const s of PK.strokes) c[s[6]] = (c[s[6]] || 0) + 1; return c; })();
+
+function show(lv) {
+  let n = 0;
+  for (const p of paths) {
+    const on = +p.dataset.l <= lv;
+    p.style.display = on ? '' : 'none';
+    if (on) n++;
+  }
+  document.querySelectorAll('.btns button').forEach(b => b.classList.toggle('on', +b.dataset.l === lv));
+  document.getElementById('cap').textContent =
+    '累计 ' + n.toLocaleString() + ' 笔 · 本层 ' + (counts[lv] || 0).toLocaleString() + ' 笔 · ' + PK.names[lv];
+  document.getElementById('plb').textContent = 'PAINTED · LAYER 0' + (lv + 1);
+  document.title = 'layer ' + lv + ' · ' + PK.names[lv].slice(3);
+  history.replaceState(null, '', '#layer=' + lv);
+}
+
+const btns = document.getElementById('btns');
+for (let i = 0; i <= MAXL; i++) {
+  const b = document.createElement('button');
+  b.dataset.l = i; b.textContent = PK.names[i].slice(3) + ' · ' + (counts[i] || 0).toLocaleString();
+  b.onclick = () => show(i);
+  btns.appendChild(b);
+}
+
+// both panels are scaled to fill their cell at their own aspect ratio
+const img = document.getElementById('orig');
+const cellA = document.getElementById('cellA'), cellB = document.getElementById('cellB');
+function fitOne(el, w, h) {
+  const aw = el.parentElement.clientWidth, ah = el.parentElement.clientHeight;
+  if (!aw || !ah || !w || !h) return;
+  const s = Math.min(aw / w, ah / h);
+  el.style.width = Math.max(1, Math.round(w * s)) + 'px';
+  el.style.height = Math.max(1, Math.round(h * s)) + 'px';
+}
+function fit() {
+  fitOne(svg, PK.w, PK.h);
+  fitOne(img, img.naturalWidth, img.naturalHeight);
+}
+if (window.ResizeObserver) { new ResizeObserver(fit).observe(cellA); new ResizeObserver(fit).observe(cellB); }
+addEventListener('resize', fit);
+img.addEventListener('load', fit);
+addEventListener('load', fit);
+
+const m = /layer=(\d+)/.exec(location.hash);
+show(m ? Math.min(MAXL, +m[1]) : MAXL);
+fit();
+
+addEventListener('keydown', e => {
+  const cur = +((/layer=(\d+)/.exec(location.hash) || [0, MAXL])[1]);
+  if (e.key === 'ArrowRight' && cur < MAXL) show(cur + 1);
+  if (e.key === 'ArrowLeft' && cur > 0) show(cur - 1);
+});
+</script></body></html>

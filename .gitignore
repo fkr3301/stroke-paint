@@ -1,0 +1,12 @@
+# deps are vendored, but keep these out of the repo anyway
+node_modules/
+stroke-paint-out/
+out/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# local scratch
+*.log

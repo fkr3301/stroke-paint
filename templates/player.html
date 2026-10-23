@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__BRAND__ · stroke study</title>
+<style>
+  :root{--bg:#ECEDE8;--card:#FBFBF8;--line:#DBDDD4;--ink:#22231D;--mut:#8C8E83;--acc:#C6401D}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
+  .page{max-width:1560px;margin:0 auto;height:100vh;padding:26px 48px 30px;display:flex;flex-direction:column}
+  header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:26px}
+  .brand{font-family:Georgia,'Songti SC','Noto Serif SC',serif;font-size:22px;letter-spacing:3px}
+  .brand .sub{font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:3px;color:var(--mut);margin-left:12px}
+  .meta{font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--mut)}
+  main{flex:1;min-height:0;display:flex;gap:56px;justify-content:center}
+  .board{flex:1;max-width:780px;min-width:0;display:flex;flex-direction:column}
+  .paper{flex:1;min-height:0;background:#fff;border:1px solid var(--line);box-shadow:0 12px 34px rgba(30,32,25,.09);padding:10px;display:flex}
+  .canvas{flex:1;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;background:#fff}
+  .canvas svg{display:block;background:#fff}
+  .cap{display:flex;justify-content:space-between;padding-top:10px;font:10px/1.4 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--mut)}
+  #capL i{color:var(--acc);font-style:normal;margin-right:6px}
+  .side{width:478px;flex:none;display:flex;flex-direction:column;gap:16px;min-height:0}
+  .card{background:var(--card);border:1px solid var(--line);box-shadow:0 6px 18px rgba(30,32,25,.05)}
+  .orig{padding:10px;display:flex;justify-content:center}
+  .orig img{height:236px;width:auto;display:block;border:1px solid var(--line);background:#fff}
+  .ctl{padding:14px 16px 16px}
+  .row1{display:flex;align-items:baseline;gap:8px}
+  #cnt{font:26px/1 ui-monospace,Consolas,monospace;letter-spacing:1px}
+  .den{font:11px ui-monospace,Consolas,monospace;color:var(--mut)}
+  #tm{margin-left:auto;font:11px ui-monospace,Consolas,monospace;color:var(--mut)}
+  #seek{width:100%;margin:12px 0;accent-color:var(--acc)}
+  .row2{display:flex;align-items:center;gap:10px}
+  .rb{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;font-size:12px}
+  .rb:hover{background:#f0f1ec}
+  .rb.big{width:50px;height:50px;background:var(--acc);border:none;color:#fff;font-size:15px;box-shadow:0 5px 14px rgba(198,64,29,.35)}
+  .sps{margin-left:auto;display:flex;gap:4px}
+  .sb{border:1px solid var(--line);background:#fff;color:var(--mut);font:10px ui-monospace,Consolas,monospace;padding:5px 7px;cursor:pointer}
+  .sb.on{background:var(--ink);border-color:var(--ink);color:#fff}
+  .layers{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px}
+  .ly{display:flex;justify-content:space-between;gap:6px;border:1px solid var(--line);background:#fff;padding:6px 8px;font:10px ui-monospace,Consolas,monospace;letter-spacing:1px;color:var(--mut);cursor:pointer}
+  .ly b{color:var(--ink);font-weight:600}
+  .ly.on{background:var(--ink);border-color:var(--ink);color:#ccc}
+  .ly.on b{color:#fff}
+  .codecard{flex:1;min-height:0;display:flex;flex-direction:column;font:11px/1.6 ui-monospace,Consolas,Menlo,monospace}
+  body.nocode .codecard{display:none}
+  .codehead{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font:10px ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--mut)}
+  .chip{border:1px solid var(--line);background:#fff;color:var(--mut);font:10px ui-monospace,Consolas,monospace;padding:3px 8px;cursor:pointer}
+  #chead{padding:8px 12px 6px;color:var(--mut);white-space:pre;overflow:hidden;border-bottom:1px dashed var(--line)}
+  #cstat{padding:6px 12px;color:var(--acc);white-space:pre;overflow:hidden;border-bottom:1px solid var(--line)}
+  #log{flex:1;overflow:auto;padding:4px 0}
+  .cl{padding:1px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#4A4C44}
+  .cl .ci{color:#B0B2A6;user-select:none}
+  .cf{color:var(--acc);font-weight:600}
+  .ch{font-weight:600;color:#3C3E36}
+  .ch i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;border:1px solid rgba(0,0,0,.18)}
+  .cn{color:#8A6A12}
+  .cd{color:#3E6B4F}
+  .cc{padding:7px 12px 1px;color:#9A9C90;font-style:italic}
+  .cl.now{background:#fff;box-shadow:inset 2px 0 0 var(--acc)}
+  .cl.fut{opacity:.4}
+  @media (max-width:1100px){main{flex-direction:column;overflow:auto}.side{width:100%}.codecard{min-height:260px}}
+</style></head><body>
+<div class="page">
+<header><div class="brand">__BRAND__<span class="sub">__SUB__</span></div><div class="meta" id="meta"></div></header>
+<main>
+  <section class="board">
+    <div class="paper"><div class="canvas" id="canvas"><svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg></div></div>
+    <div class="cap"><span id="capL"></span><span id="capR"></span></div>
+  </section>
+  <aside class="side">
+    <div class="card orig"><img alt="原图" src="__ORIGINAL__"></div>
+    <div class="card ctl">
+      <div class="row1"><span id="cnt">00000</span><span class="den">/ <span id="den"></span> 笔</span><span id="tm"></span></div>
+      <input id="seek" type="range" min="0" max="1" step="0.001" value="0">
+      <div class="row2">
+        <button id="bPrev" class="rb" title="上一笔 (←)">⏮</button>
+        <button id="bPlay" class="rb big" title="播放/暂停 (空格)">▶</button>
+        <button id="bNext" class="rb" title="下一笔 (→)">⏭</button>
+        <span class="sps">
+          <button class="sb" data-v="0.5">0.5x</button><button class="sb on" data-v="1">1x</button><button class="sb" data-v="2">2x</button><button class="sb" data-v="4">4x</button><button class="sb" data-v="8">8x</button>
+        </span>
+      </div>
+      <div class="layers" id="layers"></div>
+    </div>
+    <div class="card codecard">
+      <div class="codehead"><span>CODE · BRUSH LOG</span><button id="bCode" class="chip">隐藏</button></div>
+      <div id="chead"></div>
+      <div id="cstat"></div>
+      <div id="log"></div>
+    </div>
+  </aside>
+</main>
+</div>
+<script>
+const PK = __PACKET__;
+const W = PK.w, H = PK.h, TOTAL = PK.total, S = PK.strokes, NS = S.length, NAMES = PK.names;
+document.getElementById('meta').textContent = 'SVG PATH · ' + NS.toLocaleString() + ' STROKES · ' + W + ' × ' + H;
+const svg = document.getElementById('svg');
+svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+// fit the artwork into the paper box at its own aspect ratio (portrait or landscape)
+const canvasEl = document.getElementById('canvas');
+function fit() {
+  const aw = canvasEl.clientWidth, ah = canvasEl.clientHeight;
+  if (!aw || !ah) return;
+  const s = Math.min(aw / W, ah / H);
+  svg.style.width = Math.max(1, Math.round(W * s)) + 'px';
+  svg.style.height = Math.max(1, Math.round(H * s)) + 'px';
+}
+if (window.ResizeObserver) new ResizeObserver(fit).observe(canvasEl);
+else addEventListener('resize', fit);
+fit();
+const paper = document.createElementNS(svg.namespaceURI, 'rect');
+paper.setAttribute('width', W); paper.setAttribute('height', H); paper.setAttribute('fill', '#ffffff');
+svg.appendChild(paper);
+const P = new Array(NS);
+const frag = document.createDocumentFragment();
+for (let i = 0; i < NS; i++) {
+  const s = S[i], p = document.createElementNS(svg.namespaceURI, 'path');
+  p.setAttribute('d', s[0]); p.setAttribute('stroke', s[1]); p.setAttribute('stroke-width', s[2]);
+  p.setAttribute('fill', 'none'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
+  p.setAttribute('stroke-opacity', s[3]);
+  p.setAttribute('pathLength', '1'); p.setAttribute('stroke-dasharray', '1'); p.setAttribute('stroke-dashoffset', '1');
+  P[i] = p; frag.appendChild(p);
+}
+svg.appendChild(frag);
+const chead = document.getElementById('chead'), cstat = document.getElementById('cstat'), log = document.getElementById('log');
+const cnt = document.getElementById('cnt'), den = document.getElementById('den'), tm = document.getElementById('tm');
+const capL = document.getElementById('capL'), capR = document.getElementById('capR');
+den.textContent = NS.toLocaleString();
+{
+  const c = {}; for (const s of S) c[s[6]] = (c[s[6]] || 0) + 1;
+  chead.textContent = 'const paper = svg(' + W + ', ' + H + ', "#ffffff");\n// ' + NS + ' strokes · strictly serial · one brush at a time';
+  document.getElementById('layers').innerHTML = NAMES.map((n, i) => c[i] ? '<div class="ly" data-l="' + i + '"><b>' + n.slice(3) + '</b><span>' + c[i].toLocaleString() + '</span></div>' : '').join('');
+}
+const lyEls = NAMES.map((n, i) => document.querySelector('.ly[data-l="' + i + '"]'));
+let lastCodeCur = -1, lastLy = -1;
+function lineHTML(i) {
+  const s = S[i];
+  return '<div class="cl' + (i > cur ? ' fut' : '') + (i === cur ? ' now' : '') + '" data-i="' + i + '" title="' + s[0] + '"><span class="ci">' + String(i).padStart(5, '0') + '</span> <span class="cf">brush</span>(<span class="ch"><i style="background:' + s[1] + '"></i>' + s[1] + '</span>, <span class="cn">' + s[2] + '</span>, <span class="cn">' + s[3] + '</span>, <span class="cd">\'' + s[0] + '\'</span>)</div>';
+}
+function refreshCode() {
+  if (cur === lastCodeCur) return;
+  lastCodeCur = cur;
+  const a = Math.max(0, cur - 40), b = Math.min(NS, cur + 8);
+  let h = '';
+  for (let i = a; i < b; i++) {
+    if (i === a || S[i][6] !== S[i - 1][6]) h += '<div class="cc">// ── ' + NAMES[S[i][6]] + ' ──</div>';
+    h += lineHTML(i);
+  }
+  log.innerHTML = h;
+  const el = log.querySelector('.cl[data-i="' + cur + '"]');
+  if (el) el.scrollIntoView({ block: 'center' });
+}
+const seek = document.getElementById('seek');
+const bPlay = document.getElementById('bPlay'), bPrev = document.getElementById('bPrev'), bNext = document.getElementById('bNext');
+seek.max = TOTAL;
+let t = 0, cur = 0, playing = false, speed = 1, lastTs = null, scrubbing = false;
+const mmss = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const endOf = i => S[i][4] + S[i][5];
+function setOff(i, v) { P[i].setAttribute('stroke-dashoffset', v); }
+function applyFull(nt) {
+  for (let i = 0; i < NS; i++) setOff(i, nt >= endOf(i) ? 0 : nt >= S[i][4] ? 1 - (nt - S[i][4]) / S[i][5] : 1);
+  let lo = 0, hi = NS; while (lo < hi) { const m = (lo + hi) >> 1; if (endOf(m) <= nt) lo = m + 1; else hi = m; }
+  cur = lo;
+}
+function applyFwd(nt) {
+  while (cur < NS && endOf(cur) <= nt) { setOff(cur, 0); cur++; }
+  if (cur < NS) setOff(cur, nt >= S[cur][4] ? 1 - (nt - S[cur][4]) / S[cur][5] : 1);
+}
+function setTime(nt, forceFull) {
+  nt = Math.max(0, Math.min(TOTAL, nt));
+  if (forceFull || nt < t) applyFull(nt); else applyFwd(nt);
+  t = nt; hud();
+}
+function hud() {
+  if (!scrubbing) seek.value = t;
+  cnt.textContent = String(Math.min(NS, cur + 1)).padStart(5, '0');
+  tm.textContent = mmss(t) + ' / ' + mmss(TOTAL);
+  const s = S[Math.min(cur, NS - 1)], li = s[6];
+  if (li !== lastLy) {
+    lastLy = li;
+    capL.innerHTML = '<i>●</i>' + NAMES[li].slice(3);
+    capR.textContent = 'LAYER 0' + (li + 1) + ' · ' + NAMES[li].slice(3);
+    lyEls.forEach((el, k) => el && el.classList.toggle('on', k === li));
+  }
+  const p = cur < NS ? Math.round(100 * Math.min(1, Math.max(0, (t - s[4]) / s[5]))) : 100;
+  cstat.textContent = (playing ? '▶ executing' : '⏸ paused') + '  #' + cur + '  ' + NAMES[li] + '  ' + p + '%';
+  refreshCode();
+}
+let rafId = 0;
+function frame(ts) {
+  if (playing) {
+    if (lastTs != null) {
+      t += (ts - lastTs) / 1000 * speed;
+      if (t >= TOTAL) { t = TOTAL; playing = false; bPlay.textContent = '▶'; }
+      applyFwd(t); hud();
+    }
+    lastTs = ts;
+  } else lastTs = ts;
+  rafId = requestAnimationFrame(frame);
+}
+bPlay.onclick = () => {
+  if (!playing && t >= TOTAL) setTime(0, true);
+  playing = !playing; bPlay.textContent = playing ? '⏸' : '▶';
+};
+seek.addEventListener('pointerdown', () => scrubbing = true);
+addEventListener('pointerup', () => scrubbing = false);
+seek.addEventListener('input', () => setTime(parseFloat(seek.value), false));
+function lowerStart(nt) { let lo = 0, hi = NS; while (lo < hi) { const m = (lo + hi) >> 1; if (S[m][4] < nt - 1e-6) lo = m + 1; else hi = m; } return lo - 1; }
+function upperStart(nt) { let lo = 0, hi = NS; while (lo < hi) { const m = (lo + hi) >> 1; if (S[m][4] <= nt + 1e-6) lo = m + 1; else hi = m; } return lo; }
+bPrev.onclick = () => { const i = lowerStart(t); setTime(i >= 0 ? S[i][4] : 0, true); };
+bNext.onclick = () => { const i = upperStart(t); setTime(i < NS ? S[i][4] : TOTAL, true); };
+document.querySelectorAll('.sb').forEach(b => b.onclick = () => {
+  speed = parseFloat(b.dataset.v);
+  document.querySelectorAll('.sb').forEach(x => x.classList.toggle('on', x === b));
+});
+// clicking a layer chip jumps to the frame where that layer is finished
+document.querySelectorAll('.ly').forEach(el => el.onclick = () => {
+  const lv = +el.dataset.l;
+  let last = -1;
+  for (let i = 0; i < NS; i++) if (S[i][6] <= lv) last = i; else if (last >= 0) break;
+  setTime(last >= 0 ? endOf(last) : 0, true);
+});
+const bCode = document.getElementById('bCode');
+bCode.onclick = () => { const off = document.body.classList.toggle('nocode'); bCode.textContent = off ? '显示' : '隐藏'; };
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); bPlay.onclick(); }
+  else if (e.key === 'ArrowLeft') bPrev.onclick();
+  else if (e.key === 'ArrowRight') bNext.onclick();
+});
+
+// ---- deep links: paint.html#t=52.4  ·  paint.html#layer=3  ·  ?play=1 ----
+function deepLink() {
+  const q = new URLSearchParams(location.search);
+  const hash = location.hash.replace(/^#/, '');
+  const mt = /(?:^|&)t=([\d.]+)/.exec(hash);
+  const ml = /(?:^|&)layer=(\d+)/.exec(hash);
+  if (ml) {
+    const lv = +ml[1];
+    let last = -1;
+    for (let i = 0; i < NS; i++) if (S[i][6] <= lv) last = i; else if (last >= 0) break;
+    setTime(last >= 0 ? endOf(last) : 0, true);
+    return;
+  }
+  if (mt) { setTime(parseFloat(mt[1]), true); return; }
+  if (q.get('play') === '1') bPlay.onclick();
+}
+if (S.length) { applyFull(0); hud(); }
+deepLink();
+requestAnimationFrame(frame);
+</script></body></html>

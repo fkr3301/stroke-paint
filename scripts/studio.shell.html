@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一笔一画 · 一键生成</title>
+<style>
+  :root{--bg:#ECEDE8;--card:#FBFBF8;--line:#DBDDD4;--ink:#22231D;--mut:#8C8E83;--acc:#C6401D}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.55 system-ui,-apple-system,'Segoe UI','Microsoft YaHei',sans-serif;display:flex;flex-direction:column}
+  header{display:flex;justify-content:space-between;align-items:baseline;padding:20px 34px 14px;border-bottom:1px solid var(--line)}
+  .brand{font-family:Georgia,'Songti SC','Noto Serif SC',serif;font-size:22px;letter-spacing:3px}
+  .brand .sub{font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:3px;color:var(--mut);margin-left:12px}
+  .meta{font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--mut)}
+  main{flex:1;min-height:0;display:flex;flex-direction:column}
+  #stage{flex:1;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}
+  .panel{width:100%;max-width:820px;background:var(--card);border:1px solid var(--line);box-shadow:0 12px 34px rgba(30,32,25,.07);padding:22px}
+  .drop{display:block;border:2px dashed #CFD1C6;background:#fff;padding:44px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+  .drop.over{border-color:var(--acc);background:#fff8f4}
+  .drop b{display:block;font-family:Georgia,'Songti SC',serif;font-size:20px;letter-spacing:2px;margin-bottom:8px}
+  .drop span{display:block;font:11px/1.8 ui-monospace,Consolas,monospace;color:var(--mut);letter-spacing:1px}
+  .opts{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-top:18px}
+  .opts label{display:flex;flex-direction:column;gap:5px;font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:2px;color:var(--mut)}
+  .opts select,.opts input{font:13px system-ui,sans-serif;color:var(--ink);background:#fff;border:1px solid var(--line);padding:7px 9px;min-width:96px}
+  .opts input{min-width:170px}
+  .opts .sp{flex:1}
+  button{font:12px/1 system-ui,sans-serif;letter-spacing:1px;cursor:pointer;padding:10px 16px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+  button:hover{background:#f1f2ec}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 5px 14px rgba(198,64,29,.32)}
+  button.primary:hover{filter:brightness(1.06)}
+  .ghost{color:var(--mut)}
+  .hint{margin:16px 0 0;font:11px/1.7 ui-monospace,Consolas,monospace;color:var(--mut);letter-spacing:1px}
+  #busy .spin{width:34px;height:34px;margin:0 auto 16px;border:3px solid #DADCD2;border-top-color:var(--acc);border-radius:50%;animation:sp 900ms linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #status{text-align:center;font:12px/1.8 ui-monospace,Consolas,monospace;color:var(--mut);letter-spacing:1px;word-break:break-word}
+  #status.err{color:var(--acc)}
+  #out{flex:1;min-height:0;display:flex;flex-direction:column}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--card)}
+  #stats{font:11px/1 ui-monospace,Consolas,monospace;color:var(--mut);letter-spacing:1px}
+  .toolbar .sp{flex:1}
+  #frame{flex:1;width:100%;border:0;background:#fff}
+  [hidden]{display:none !important}
+  @media (max-width:760px){
+    header{padding:16px 18px 12px}
+    .panel{padding:16px}
+    .drop{padding:30px 14px}
+    .opts{gap:10px}
+    .opts input{min-width:120px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">一笔一画<span class="sub">STROKE STUDIO</span></div>
+  <div class="meta">LOCAL · NO UPLOAD · NO INSTALL</div>
+</header>
+<main>
+  <div id="stage">
+    <section class="panel" id="input">
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="image/*" hidden>
+        <b>拖一张图片进来</b>
+        <span>或点击选择文件 · Ctrl / ⌘ + V 粘贴 · JPG / PNG / WebP / GIF / AVIF</span>
+      </label>
+      <div class="opts">
+        <label>精细度
+          <select id="preset">
+            <option value="quick">快速（轻）</option>
+            <option value="normal" selected>标准</option>
+            <option value="fine">精细（慢）</option>
+          </select>
+        </label>
+        <label>播放时长
+          <select id="seconds">
+            <option value="60">60 秒</option>
+            <option value="100" selected>100 秒</option>
+            <option value="150">150 秒</option>
+          </select>
+        </label>
+        <label>标题
+          <input id="title" value="一笔一画" maxlength="24" spellcheck="false">
+        </label>
+        <span class="sp"></span>
+        <button id="demo" class="ghost">用示例图试试</button>
+      </div>
+      <p class="hint">整条流水线就在这个页面里跑：图片不会上传到任何服务器，断网也能用。生成后可以下载成一个独立 HTML 发给别人。</p>
+    </section>
+
+    <section class="panel" id="busy" hidden>
+      <div class="spin"></div>
+      <div id="status">读取图片…</div>
+    </section>
+  </div>
+
+  <section id="out" hidden>
+    <div class="toolbar">
+      <span id="stats"></span>
+      <span class="sp"></span>
+      <button id="dl" class="primary">下载 paint.html</button>
+      <button id="again" class="ghost">再画一张</button>
+    </div>
+    <iframe id="frame" title="painting preview"></iframe>
+  </section>
+</main>
+
+<script>
+/*__CORE__*/
+</script>
+<script>
+'use strict';
+const PLAYER_TPL = __PLAYER_TPL__;
+const SAMPLE = '__SAMPLE__';
+const PRESETS = { quick: { width: 440, layers: 3 }, normal: { width: 640, layers: 5 }, fine: { width: 820, layers: 5 } };
+
+const $ = s => document.querySelector(s);
+const tick = () => new Promise(r => setTimeout(r, 24));
+// three mutually exclusive screens: picker / spinner / result
+function showPicker() { $('#stage').hidden = false; $('#input').hidden = false; $('#busy').hidden = true; $('#out').hidden = true; }
+function showBusy() { $('#stage').hidden = false; $('#input').hidden = true; $('#busy').hidden = false; $('#out').hidden = true; }
+function showResult() { $('#stage').hidden = true; $('#out').hidden = false; }
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fill = (tpl, map) => Object.keys(map).reduce((s, k) => s.split(k).join(map[k]), tpl);
+const safeJson = v => JSON.stringify(v).replace(/<\//g, '<\\/');
+
+let currentHtml = '';
+let currentName = 'paint';
+
+// ---- decode any browser-supported image into an RGBA raster ----
+function rasterFrom(bitmap) {
+  const MAX = 2000; // cap the working raster; the analysis is 640 wide anyway
+  const s = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * s));
+  const h = Math.max(1, Math.round(bitmap.height * s));
+  const cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  const data = ctx.getImageData(0, 0, w, h).data; // Uint8ClampedArray, RGBA
+  return { rgba: data, w, h, canvas: cv };
+}
+
+function thumbDataUrl(canvas) {
+  const s = Math.min(1, 520 / canvas.height);
+  const w = Math.max(1, Math.round(canvas.width * s));
+  const h = Math.max(1, Math.round(canvas.height * s));
+  const c2 = document.createElement('canvas');
+  c2.width = w; c2.height = h;
+  const x = c2.getContext('2d');
+  x.fillStyle = '#ffffff';                       // JPEG has no alpha: keep paper white
+  x.fillRect(0, 0, w, h);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(canvas, 0, 0, w, h);
+  return c2.toDataURL('image/jpeg', 0.82);
+}
+
+function buildPlayer(packet, imageUrl, title, sub) {
+  return fill(PLAYER_TPL, {
+    '__PACKET__': safeJson(packet),
+    '__ORIGINAL__': imageUrl,
+    '__BRAND__': esc(title),
+    '__SUB__': esc(sub),
+  });
+}
+
+// ---- the one-click path ----
+async function paintFromBlob(blob, name) {
+  currentName = (name || 'image').replace(/\.[^.]+$/, '').replace(/[^\w\u4e00-\u9fa5-]+/g, '-').slice(0, 40) || 'paint';
+  showBusy();
+  const status = $('#status');
+  status.classList.remove('err');
+  try {
+    status.textContent = '读取图片…';
+    await tick();
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(blob);
+    } catch (e) {
+      throw new Error('这个格式浏览器读不了，换一张 JPG / PNG / WebP 试试');
+    }
+    const src = rasterFrom(bitmap);
+    if (bitmap.close) bitmap.close();
+
+    const preset = PRESETS[$('#preset').value] || PRESETS.normal;
+    const seconds = +$('#seconds').value || 100;
+    const title = ($('#title').value || '一笔一画').trim();
+
+    status.textContent = `分析画面（${src.w}×${src.h}）…`;
+    await tick();
+
+    const t0 = performance.now();
+    const res = paintCore({
+      rgba: src.rgba, srcW: src.w, srcH: src.h,
+      width: preset.width, layers: preset.layers, seconds,
+      log: m => { status.textContent = m; },
+    });
+    const ms = Math.round(performance.now() - t0);
+
+    status.textContent = '生成画面…';
+    await tick();
+    const html = buildPlayer(res.packet, thumbDataUrl(src.canvas), title, 'STROKE STUDY');
+    currentHtml = html;
+
+    const size = new Blob([html]).size;
+    $('#stats').textContent =
+      `${res.packet.strokes.length.toLocaleString()} 笔 · ${res.packet.total.toFixed(0)} 秒 · ` +
+      `${(size / 1048576).toFixed(1)} MB · ${ms} ms`;
+    // the downloadable file stays paused at frame 0; the preview starts playing itself
+    const autoplay = '<script>setTimeout(function(){var b=document.getElementById("bPlay");' +
+      'if(b&&b.textContent.indexOf("\u25b6")>-1)b.click();},400);<\/script>';
+    $('#frame').srcdoc = html.replace('</body>', autoplay + '</body>');
+    showResult();
+  } catch (e) {
+    status.classList.add('err');
+    status.textContent = '出错了：' + (e && e.message ? e.message : e);
+  }
+}
+
+// fetch() of a data: URL fails on file:// pages, so decode the sample by hand
+function b64ToBlob(b64, type) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: type || 'image/jpeg' });
+}
+
+// ---- input wiring ----
+function handleFile(file) {
+  if (!file) return;
+  if (!/^image\//.test(file.type)) {
+    showBusy();
+    const s = $('#status');
+    s.classList.add('err');
+    s.textContent = '这不是图片文件（' + (file.type || '未知类型') + '）';
+    return;
+  }
+  paintFromBlob(file, file.name);
+}
+
+$('#file').addEventListener('change', e => handleFile(e.target.files[0]));
+
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => {
+  e.preventDefault(); e.stopPropagation(); drop.classList.add('over');
+}));
+['dragleave', 'dragend'].forEach(t => drop.addEventListener(t, e => {
+  e.preventDefault(); drop.classList.remove('over');
+}));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); e.stopPropagation(); drop.classList.remove('over');
+  handleFile(e.dataTransfer.files && e.dataTransfer.files[0]);
+});
+// dropping anywhere on the page also works
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => {
+  if (e.target.closest && e.target.closest('#drop')) return;
+  e.preventDefault();
+  handleFile(e.dataTransfer.files && e.dataTransfer.files[0]);
+});
+
+window.addEventListener('paste', e => {
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items) {
+    if (it.type && it.type.indexOf('image/') === 0) {
+      handleFile(it.getAsFile());
+      e.preventDefault();
+      return;
+    }
+  }
+});
+
+$('#demo').addEventListener('click', () => {
+  if (!SAMPLE) return;
+  showBusy();
+  $('#status').textContent = '加载示例图…';
+  try {
+    paintFromBlob(b64ToBlob(SAMPLE, 'image/jpeg'), 'sample.jpg');
+  } catch (e) {
+    $('#status').classList.add('err');
+    $('#status').textContent = '示例图加载失败：' + e.message;
+  }
+});
+
+$('#dl').addEventListener('click', () => {
+  if (!currentHtml) return;
+  const blob = new Blob([currentHtml], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = currentName + '.html';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+
+$('#again').addEventListener('click', () => {
+  $('#frame').removeAttribute('srcdoc');
+  currentHtml = '';
+  $('#status').classList.remove('err');
+  $('#status').textContent = '读取图片…';
+  showPicker();
+});
+
+// ---- optional deep links: #demo runs the sample, ?src=<url> paints a remote image ----
+(function deepLinks() {
+  if (/demo/.test(location.hash)) {
+    setTimeout(() => $('#demo').click(), 60);
+    return;
+  }
+  const src = new URLSearchParams(location.search).get('src');
+  if (src && /^https?:/i.test(src) && /^https?:/.test(location.protocol)) {
+    (async () => {
+      showBusy();
+      $('#status').textContent = '下载图片…';
+      try {
+        const blob = await (await fetch(src)).blob();
+        paintFromBlob(blob, src.split('/').pop() || 'image');
+      } catch (e) {
+        $('#status').classList.add('err');
+        $('#status').textContent = '图片下载失败（可能是跨域限制）：' + e.message;
+      }
+    })();
+  }
+})();
+</script>
+</body>
+</html>

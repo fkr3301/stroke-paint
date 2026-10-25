@@ -46,6 +46,9 @@ const LAYER_SPEED = [1500, 1200, 1000, 850, 650, 2000]; // px per second, per la
  */
 function paintCore(opts) {
   const say = typeof opts.log === 'function' ? opts.log : () => {};
+  const useScale = opts.noScale !== true;      // width follows local feature scale
+  const useEdgeStop = opts.noEdgeStop !== true; // strokes stop at hard luminance steps
+  const useCoreColor = opts.avgColor !== true;  // trimmed-mean colour instead of mean
   const rgba = opts.rgba;
   const SW = opts.srcW, SH = opts.srcH;
   const MAXL = Math.max(0, Math.min(5, opts.layers == null ? 5 : opts.layers));
@@ -158,17 +161,114 @@ function paintCore(opts) {
   const P = { 50: pct(0.5), 65: pct(0.65), 72: pct(0.72), 88: pct(0.88), 90: pct(0.90), 93: pct(0.93), 99: pct(0.99) };
   if (P[99] < 0.004) say('warning: the picture is almost flat (no local contrast) — the strokes will look like plain colour fills.');
 
+  // ---- is there paper (a bright, empty ground) within ~13px? ----
+  // Thresholds "ink on paper" images (line art, text, screenshots, blown highlights)
+  // where the brush must be ink-thin, from photographs where a wide brush is correct.
+  const Lmax13 = (() => {
+    const tmp = new Float32Array(N), out = new Float32Array(N);
+    const r = 6;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let m = 0;
+        for (let k = -r; k <= r; k++) { const v = L[y * W + Math.min(W - 1, Math.max(0, x + k))]; if (v > m) m = v; }
+        tmp[y * W + x] = m;
+      }
+    }
+    for (let x = 0; x < W; x++) {
+      for (let y = 0; y < H; y++) {
+        let m = 0;
+        for (let k = -r; k <= r; k++) { const v = tmp[Math.min(H - 1, Math.max(0, y + k)) * W + x]; if (v > m) m = v; }
+        out[y * W + x] = m;
+      }
+    }
+    return out;
+  })();
+  // ---- local peak-to-peak luminance in a 5x5 window ----
+  // A real hairline is a step of ~0.9 in luminance; film grain is ~0.02, and a soft
+  // gradient is ~0.05. Percentiles of any derivative always let ~10% of the image
+  // through, so "is this a genuine hard edge" has to be an absolute test.
+  const stepMap = (() => {
+    const out = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let lo = 1e9, hi = -1e9;
+      for (let dy = -2; dy <= 2; dy++) {
+        const yy = Math.min(H - 1, Math.max(0, y + dy)) * W;
+        for (let dx = -2; dx <= 2; dx++) {
+          const v = L[yy + Math.min(W - 1, Math.max(0, x + dx))];
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+        }
+      }
+      out[y * W + x] = hi - lo;
+    }
+    return out;
+  })();
+
+  // ---- local feature scale: distance to the nearest HARD edge ----
+  // A hairline must not be painted with a 24px brush, while an open field keeps its
+  // full width. Seeding on the absolute step (not on a detail percentile) is what keeps
+  // this inert on soft, grainy photographs and active on ink, text and blown highlights.
+  const detailScaleAt = (() => {
+    const INF = 1e7;
+    const d = new Float32Array(N);
+    for (let i = 0; i < N; i++) d[i] = stepMap[i] > 0.30 ? 0 : INF;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      let v = d[i];
+      if (x > 0) v = Math.min(v, d[i - 1] + 3);
+      if (y > 0) {
+        v = Math.min(v, d[i - W] + 3);
+        if (x > 0) v = Math.min(v, d[i - W - 1] + 4);
+        if (x < W - 1) v = Math.min(v, d[i - W + 1] + 4);
+      }
+      d[i] = v;
+    }
+    for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+      const i = y * W + x;
+      let v = d[i];
+      if (x < W - 1) v = Math.min(v, d[i + 1] + 3);
+      if (y < H - 1) {
+        v = Math.min(v, d[i + W] + 3);
+        if (x < W - 1) v = Math.min(v, d[i + W + 1] + 4);
+        if (x > 0) v = Math.min(v, d[i + W - 1] + 4);
+      }
+      d[i] = v;
+    }
+    for (let i = 0; i < N; i++) d[i] = d[i] >= INF ? 40 : d[i] / 3;
+    // A brush must never be wider than the ink it sits on: inside a 6px black line the
+    // nearest hard edge is 3px away, so the ink is ~6px and a 24px brush is scaled to 6.
+    // In open areas (no hard edge nearby) this returns 1 and nothing changes at all.
+    return (x, y, base) => {
+      const i = Math.min(H - 1, Math.max(0, y | 0)) * W + Math.min(W - 1, Math.max(0, x | 0));
+      const ink = 2 * d[i];
+      const limit = Math.min(1, Math.max(0.18, ink / Math.max(1e-6, base)));
+      // Only honour the ink width on paper-like ground. In a dark or mid-tone area a wide
+      // brush is the correct underpainting; shrinking it there just leaves white gaps.
+      const paper = Math.min(1, Math.max(0, (Lmax13[i] - 0.80) / 0.12));
+      return 1 - paper * (1 - limit);
+    };
+  })();
+
+
+
   // ---- sampling helpers ----
   const sampleRGB = (x, y) => {
     const i = Math.min(H - 1, Math.max(0, y | 0)) * W + Math.min(W - 1, Math.max(0, x | 0));
     return [R[i], G[i], B[i]];
   };
   function discRGB(x, y, r) {
-    let r0 = 0, g0 = 0, b0 = 0, n = 0;
+    // trimmed mean over the disc: a disc straddling a hard edge takes the tone of the
+    // dominant side instead of averaging black and white into a grey halo
+    const cs = [], ls = [];
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (dx * dx + dy * dy > r * r) continue;
-      const c = sampleRGB(x + dx, y + dy); r0 += c[0]; g0 += c[1]; b0 += c[2]; n++;
+      const c = sampleRGB(x + dx, y + dy);
+      cs.push(c); ls.push(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]);
     }
+    const order = ls.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
+    const lo = Math.floor(order.length * 0.2), hi = Math.max(lo + 1, Math.ceil(order.length * 0.8));
+    let r0 = 0, g0 = 0, b0 = 0, n = 0;
+    for (let k = lo; k < hi; k++) { const c = cs[order[k][1]]; r0 += c[0]; g0 += c[1]; b0 += c[2]; n++; }
     return [r0 / n, g0 / n, b0 / n];
   }
   function pathRGB(pts) {
@@ -176,23 +276,54 @@ function paintCore(opts) {
     for (const p of pts) { const c = sampleRGB(p[0], p[1]); r0 += c[0]; g0 += c[1]; b0 += c[2]; }
     return [r0 / pts.length, g0 / pts.length, b0 / pts.length];
   }
+  const lumAt = (x, y) => {
+    const i = Math.min(H - 1, Math.max(0, y | 0)) * W + Math.min(W - 1, Math.max(0, x | 0));
+    return L[i];
+  };
+  // Colour of a stroke = trimmed mean by luminance. A stroke lying partly on black and
+  // partly on white then keeps the tone of the side it actually covers instead of
+  // averaging to grey — this is what stops hard edges turning to mud.
+  function coreRGB(pts) {
+    const cs = [], ls = [];
+    for (const p of pts) {
+      const c = sampleRGB(p[0], p[1]);
+      cs.push(c); ls.push(0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]);
+    }
+    const order = ls.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
+    const lo = Math.floor(order.length * 0.25), hi = Math.max(lo + 1, Math.ceil(order.length * 0.75));
+    let r0 = 0, g0 = 0, b0 = 0, n = 0;
+    for (let k = lo; k < hi; k++) { const c = cs[order[k][1]]; r0 += c[0]; g0 += c[1]; b0 += c[2]; n++; }
+    return [r0 / n, g0 / n, b0 / n];
+  }
   const hex = c => '#' + c.map(v => Math.round(Math.min(255, Math.max(0, v * 255))).toString(16).padStart(2, '0')).join('');
 
   // ---- walking strokes along the direction field ----
-  function walk(x, y, len, ds = 3) {
+  function walk(x, y, len, ds = 3, jump = 0.26) {
     const pts = [], back = [];
     let cx = x, cy = y;
+    let prevL = lumAt(cx, cy);
     for (let s = 0; s < len / 2; s += ds) {
-      const a = dirAt(cx, cy); cx -= Math.cos(a) * ds; cy -= Math.sin(a) * ds;
-      if (cx < 1 || cy < 1 || cx > W - 2 || cy > H - 2) break;
+      const a = dirAt(cx, cy);
+      const nx = cx - Math.cos(a) * ds, ny = cy - Math.sin(a) * ds;
+      if (nx < 1 || ny < 1 || nx > W - 2 || ny > H - 2) break;
+      const l = lumAt(nx, ny);
+      if (useEdgeStop && jump > 0 && Math.abs(l - prevL) > jump) break; // don't paint across a hard edge
+      prevL = l;
+      cx = nx; cy = ny;
       back.push([cx, cy]);
     }
     for (let i = back.length - 1; i >= 0; i--) pts.push(back[i]);
     pts.push([x, y]);
     cx = x; cy = y;
+    prevL = lumAt(cx, cy);
     for (let s = 0; s < len / 2; s += ds) {
-      const a = dirAt(cx, cy); cx += Math.cos(a) * ds; cy += Math.sin(a) * ds;
-      if (cx < 1 || cy < 1 || cx > W - 2 || cy > H - 2) break;
+      const a = dirAt(cx, cy);
+      const nx = cx + Math.cos(a) * ds, ny = cy + Math.sin(a) * ds;
+      if (nx < 1 || ny < 1 || nx > W - 2 || ny > H - 2) break;
+      const l = lumAt(nx, ny);
+      if (useEdgeStop && jump > 0 && Math.abs(l - prevL) > jump) break;
+      prevL = l;
+      cx = nx; cy = ny;
       pts.push([cx, cy]);
     }
     return pts;
@@ -231,8 +362,9 @@ function paintCore(opts) {
         const len = (lenMin + rnd() * (lenMax - lenMin)) * rs;
         const pts = walk(x, y, len);
         if (pts.length < 2) continue;
-        const col = li === 0 ? discRGB(x, y, cr) : pathRGB(pts);
-        out.push({ d: toPath(pts), c: hex(col), w: width * (0.85 + rnd() * 0.3), o: 1, len: polyLen(pts), x, y });
+        const sc = useScale ? detailScaleAt(x, y, width) : 1;
+        const col = li === 0 ? discRGB(x, y, Math.max(2, Math.round(cr * sc))) : (useCoreColor ? coreRGB(pts) : pathRGB(pts));
+        out.push({ d: toPath(pts), c: hex(col), w: Math.max(0.6, width * (0.85 + rnd() * 0.3) * sc), o: 1, len: polyLen(pts), x, y });
       }
     }
   }
@@ -276,8 +408,9 @@ function paintCore(opts) {
         cols.push(l1 < l2 ? c1 : c2);
       }
       const col = cols.reduce((a, c) => [a[0] + c[0] / cols.length, a[1] + c[1] / cols.length, a[2] + c[2] / cols.length], [0, 0, 0]);
-      const w = 1.2 + Math.min(1.6, (D[i] - tSeed) / Math.max(1e-6, P[99] - tSeed) * 1.6);
-      out.push({ d: toPath(pts), c: hex(col), w, o: 0.95, len: polyLen(pts), x, y });
+      const w0 = 1.2 + Math.min(1.6, (D[i] - tSeed) / Math.max(1e-6, P[99] - tSeed) * 1.6);
+      const w = w0 * (useScale ? detailScaleAt(x, y, w0) : 1);
+      out.push({ d: toPath(pts), c: hex(col), w: Math.max(0.6, w), o: 0.95, len: polyLen(pts), x, y });
     }
   }
 
@@ -364,7 +497,7 @@ function paintCore(opts) {
         if (xi < 1 || yi < 1 || xi >= W - 1 || yi >= H - 1 || !focus[yi * W + xi]) continue;
         const pts = walk(x, y, 4 + rnd() * 3, 2);
         if (pts.length < 2) continue;
-        out.push({ d: toPath(pts), c: hex(pathRGB(pts)), w: 2.9 * (0.85 + rnd() * 0.3), o: 1, len: polyLen(pts), x, y });
+        out.push({ d: toPath(pts), c: hex(useCoreColor ? coreRGB(pts) : pathRGB(pts)), w: Math.max(0.6, 2.9 * (0.85 + rnd() * 0.3) * (useScale ? detailScaleAt(x, y, 2.9) : 1)), o: 1, len: polyLen(pts), x, y });
       }
     }
     for (let gy0 = sFine * 0.45; gy0 < H; gy0 += sFine) {
@@ -375,7 +508,7 @@ function paintCore(opts) {
         if (D[yi * W + xi] < P[72]) continue; // second pass only on real edges
         const pts = walk(x, y, 3 + rnd() * 2, 1.5);
         if (pts.length < 2) continue;
-        out.push({ d: toPath(pts), c: hex(pathRGB(pts)), w: 1.7, o: 1, len: polyLen(pts), x, y });
+        out.push({ d: toPath(pts), c: hex(useCoreColor ? coreRGB(pts) : pathRGB(pts)), w: Math.max(0.6, 1.7 * (useScale ? detailScaleAt(x, y, 1.7) : 1)), o: 1, len: polyLen(pts), x, y });
       }
     }
     return out;

@@ -43,7 +43,40 @@ which is why strokes curve instead of being straight segments. Points are droppe
 where direction changes by less than ~0.18 rad, keeping the path data small —
 roughly 0.1 KB per stroke.
 
-## 4. Layers
+Walking also **stops at a hard luminance jump** (|ΔL| > 0.26 between consecutive
+samples), so a stroke never straddles a black/white boundary.
+
+## 4. Hard edges and fine structure
+
+Three mechanisms keep hard-contrast sources (line art, manga, text, blown highlights)
+from turning into grey mush. None of them adds a layer; they change how the existing
+brushes are sized and coloured.
+
+**`stepMap`** — peak-to-peak luminance inside a 5×5 window. A real hairline is a step of
+~0.9; film grain is ~0.02; a soft gradient is ~0.05. Percentiles of any derivative always
+let ~10% of the image through, so "is this a genuine hard edge" has to be measured
+absolutely. `stepMap > 0.30` is the hard-edge mask used below.
+
+**Ink-width-limited brushes** — a chamfer distance transform from every pixel to the
+nearest hard edge. Inside a 6 px black line the nearest edge is 3 px away, so the local
+ink is ~6 px and a 24 px brush is scaled to 6 px. In open areas there is no hard edge
+nearby, the distance saturates, and the scale is exactly 1 — nothing changes.
+
+The limit is then **weighted by "paper-ness"**: a 13×13 max of `L` decides whether the
+neighbourhood contains a bright, empty ground (`Lmax > 0.80`). On paper the brush is
+clamped to the ink width; in a dark or mid-tone area it is not, because shrinking a wide
+brush inside a dark mass only exposes white gaps. This single gate is what lets the same
+code serve line art *and* a portrait: measured on a 640 px grid, text went 18.1 → 20.4 dB
+and a blown window 21.0 → 24.6 dB, while the portrait improved 23.9 → 24.5 dB instead of
+regressing.
+
+**Trimmed-mean colour** — both `coreRGB()` (stroke colour) and `discRGB()` (L0's
+underpainting disc) drop the darkest and brightest 20–25% of their samples by luminance
+before averaging. A stroke lying half on ink and half on paper takes the tone of the side
+it actually covers, instead of averaging to grey. This is the single biggest visual win on
+silhouettes and text.
+
+## 5. Layers
 
 | Layer | Spacing / width | Gate | Count driver |
 | --- | --- | --- | --- |
@@ -53,6 +86,9 @@ roughly 0.1 KB per stroke.
 | L3 线稿轮廓 | traced arms up to 40 px | seed `D > P93`, keep `D > P88` | edge length |
 | L4 focus | 2.6 px then 2.2 px grid, 2.9/1.7 px wide | focus mask, second pass `D > P72` | focus area |
 | L5 高光星点 | one dot per bright component | `L > 0.52` under `blur(L,4) < 0.32` | specular hits |
+
+Every width in that table is multiplied by the ink-width scale, and no stroke is emitted
+below 0.6 px (sub-pixel strokes fade out in the SVG renderer).
 
 L0–L2 are "painterly grids": jittered seed points, length modulated per tone×saturation
 region so flat areas get longer strokes and busy areas get shorter ones.

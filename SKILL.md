@@ -89,6 +89,37 @@ Report back the stroke count, layer split, timeline seconds and file size from
 Sources below ~600 px wide work but look blocky; upscaling the source first does not
 add detail. Very high-contrast logos and flat vector art look best with `--layers 3`.
 
+### High-contrast sources (line art, manga, text, blown highlights)
+
+The brushes adapt to hard edges automatically — no flag needed:
+
+- **Brush width is capped by the local ink width** (distance to the nearest hard edge),
+  but only on paper-like ground. A 2 px line gets a ~2 px brush; a flat photograph
+  field keeps its full 24 px brush. Dark or mid-tone areas deliberately keep the wide
+  brush, because shrinking it there only leaves white gaps.
+- **Stroke colour is a trimmed mean**, so a stroke that straddles a black/white
+  boundary takes the tone of the side it covers instead of averaging to grey.
+- **Strokes stop at a hard luminance jump** (~0.26) instead of smearing across it.
+
+What this means in practice, measured against a synthetic text page, a manga-style
+line drawing and a blown-window interior (PSNR / edge-correlation):
+
+| source | before | after |
+| --- | --- | --- |
+| text on paper | 18.1 dB / 0.50 | **20.4 dB / 0.70** |
+| black-ink line art | 13.9 dB / 0.53 | **15.7 dB / 0.68** |
+| blown window, dark room | 21.0 dB / 0.61 | **24.6 dB / 0.78** |
+| portrait (penalty check) | 23.9 dB / 0.49 | **24.5 dB / 0.55** |
+
+Two things still limit very fine work, and both are resolution, not brushes:
+
+1. **Analysis width.** A 640 px grid cannot carry a 1 px line. For text, manga, UI
+   screenshots or anything with hairlines, raise the grid: `--width 900` (or the
+   source's own width, whichever is smaller). Metrics improve monotonically with width
+   on these sources.
+2. **Sub-2 px features** (hatching, 6 pt text, dense cross-hatching) alias at any grid
+   near 640. Tell the user that up front rather than over-tuning the brushes.
+
 ## Other image formats
 
 JPEG and PNG (including transparency, palette, greyscale, 16-bit) are decoded

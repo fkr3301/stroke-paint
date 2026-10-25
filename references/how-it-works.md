@@ -103,7 +103,7 @@ count is capped (`L4_CAP = 18000`): if the design spacing would exceed that, the
 spacing is coarsened by `sqrt(count/cap)` instead of dropping coverage. Dropping
 coverage is what makes faces look smudged.
 
-## 5. Timeline
+## 6. Timeline
 
 Strokes are ordered layer by layer, then in a serpentine sweep: rows of 96 px, left to
 right on even rows, right to left on odd ones. Each stroke's duration comes from
@@ -116,7 +116,7 @@ exactly and the timeline is strictly serial by construction. The player relies o
 it binary-searches for the current stroke and only ever animates the one in progress,
 which is why 20 k paths still scrub smoothly.
 
-## 6. Player
+## 7. Player
 
 `templates/player.html` is a template with four tokens — `__PACKET__`, `__ORIGINAL__`,
 `__BRAND__`, `__SUB__` — substituted by simple string replace (not `.replace`, which

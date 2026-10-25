@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>一笔一画 · stroke-paint</title>
+<meta http-equiv="refresh" content="0; url=studio.html">
+<link rel="canonical" href="studio.html">
+<style>
+  :root{--bg:#ECEDE8;--card:#FBFBF8;--line:#DBDDD4;--ink:#22231D;--mut:#8C8E83;--acc:#C6401D}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font:14px/1.6 system-ui,-apple-system,'Segoe UI','Microsoft YaHei',sans-serif;
+       display:flex;align-items:center;justify-content:center}
+  .card{max-width:460px;padding:34px 38px;background:var(--card);border:1px solid var(--line);
+        box-shadow:0 14px 40px rgba(30,32,25,.09);text-align:center}
+  h1{font-family:Georgia,'Songti SC','Noto Serif SC',serif;font-size:22px;letter-spacing:3px;margin:0 0 6px}
+  .sub{font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:3px;color:var(--mut)}
+  p{margin:18px 0 0;color:var(--mut);font-size:13px}
+  a{display:inline-block;margin-top:18px;padding:11px 20px;background:var(--acc);color:#fff;text-decoration:none;
+    font-size:13px;letter-spacing:1px;box-shadow:0 5px 14px rgba(198,64,29,.3)}
+  a:hover{filter:brightness(1.06)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>一笔一画</h1>
+    <div class="sub">STROKE STUDIO</div>
+    <p>正在打开生成器…</p>
+    <a href="studio.html">没有自动跳转？点这里开始</a>
+  </div>
+  <script>location.replace('studio.html');</script>
+</body>
+</html>

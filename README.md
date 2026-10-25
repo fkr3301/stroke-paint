@@ -4,16 +4,17 @@
 
 不需要安装任何东西——**下载仓库，双击 `studio.html`，把图拖进去**，就出结果。
 
+**在线试用（连下载都省了）**：<https://fkr3301.github.io/stroke-paint/> —— 打开就把图拖进去。
+
 ![studio](docs/studio.png)
 
 ## 三种用法
 
 ### 1. 浏览器里一键生成（推荐，零安装）
 
-1. 下载本仓库（`Code → Download ZIP`）并解压；
-2. 双击 `studio.html`（Chrome / Edge / Safari / Firefox 都行）；
-3. 把图片**拖进去**，或点击选择、`Ctrl+V` 粘贴；
-4. 几秒后下面直接开始画，点「下载 paint.html」拿走成品。
+1. 打开 <https://fkr3301.github.io/stroke-paint/>（或下载仓库后双击 `studio.html`，Chrome / Edge / Safari / Firefox 都行）；
+2. 把图片**拖进去**，或点击选择、`Ctrl+V` 粘贴；
+3. 几秒后下面直接开始画，点「下载 paint.html」拿走成品。
 
 整条流水线跑在你自己的浏览器里：**图片不会上传到任何服务器**，断网也能用，隐私安全。
 
@@ -43,10 +44,14 @@ node scripts/paint.js photo.png --preset fine --seconds 150 --title 星空 --out
 
 仓库根目录就是技能本体（`SKILL.md` + `scripts/` + `templates/`），放进 `~/.dsh/skills/stroke-paint/` 即可，之后直接说"把这张图做成绘画过程"就会命中它。
 
-### 想放到网上给别人用？
+### 在线版怎么来的（想在别人仓库复现）
 
-`Settings → Pages → Deploy from a branch → main / (root)`，然后访问
-`https://<你的用户名>.github.io/stroke-paint/studio.html` —— 别人打开网页拖图就能用，不用下载。
+本仓库已启用 GitHub Pages（分支 `main` / 根目录，含 `.nojekyll`）：
+
+- 根地址 `https://fkr3301.github.io/stroke-paint/` 由 `index.html` 跳转到 `studio.html`；
+- 直接分享 `https://fkr3301.github.io/stroke-paint/studio.html` 也可以。
+
+别人 fork 后照做：`Settings → Pages → Deploy from a branch → main / (root)`，一分钟生效。
 
 ## 成品长什么样
 
